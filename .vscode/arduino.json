@@ -1,0 +1,7 @@
+{
+    "sketch": "TG_micro.ino",
+    "configuration": "PartitionScheme=default,UploadSpeed=921600,FlashMode=qio,FlashFreq=80,PSRAM=enabled,DebugLevel=none",
+    "board": "esp32:esp32:tinypico",
+    "output": "./.build",
+    "port": "COM4"
+}
