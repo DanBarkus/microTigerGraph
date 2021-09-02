@@ -5,6 +5,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_TSL2591.h"
+#include "TigerGraphMicro.h"
 
 const int HTTPS_PORT = 443;
 const char* ssid = "fiveguysburgersandwifi";
@@ -25,7 +26,7 @@ struct tm timeinfo;
 // Neopixel Stuff
 #define LED_PIN     27
 #define LED_COUNT  8
-#define BRIGHTNESS 10
+#define BRIGHTNESS 255
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 
 // Light Sensor Stuff
@@ -74,7 +75,8 @@ const char* root_ca = \
 
 WiFiClientSecure client;
 
-DynamicJsonDocument resDict(2048);
+
+TigerGraphMicro conn(HOST_NAME, USERNAME, PASSWORD, TOKEN, client, root_ca);
 
 void setup()
 {
@@ -109,18 +111,12 @@ void setup()
 	}
   	Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
   	// printLocalTime();
-	client.setCACert(root_ca);
-	if(!client.connect(HOST_NAME,HTTPS_PORT)) {
-		Serial.println("HTTPS connection failed");
+
+	if (conn.connect() == true) {
+		Serial.println("TG Connection Successful");
 	}
 	else {
-		setStrip(strip.Color(0,255,0,150));
-		Serial.println("Connected to TG");
-		// vertexCount("RSSI");
-		upsertVertex("Device", DEVICE_ID, "{\"type\":{\"value\":\"" + String(DEVICE_TYPE) + "\"}}");
-		upsertVertex("Reading_Type", DEVICE_TYPE, "{\"unit\":{\"value\":\"LUX\"}}");
-		delay(5000);
-		// upsertEdge("Person", "Dan", "Liked", "Post", "768", "{}");
+		Serial.println("TG Connection Failed");
 	};
 }
 
@@ -132,6 +128,10 @@ void loop()
 	// Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 	float lux = getLux();
 	addReading(lux, &timeinfo);
+	// Serial.println(resDict.size());
+	// String res = runQuery("most_recent_lux", "{}");
+	// getJSON(res);
+	// parseLuxResults();
 	delay(10000);
 }
 
@@ -144,67 +144,70 @@ String echo() {
 	return response;
 }
 
-void vertexCount(String vertexType) {
-	String content = "{\"function\":\"stat_vertex_number\",\"type\":\""+vertexType+"\"}";
-	String response = makePost("builtins/MyGraph",content);
+// void vertexCount(String vertexType) {
+// 	String content = "{\"function\":\"stat_vertex_number\",\"type\":\""+vertexType+"\"}";
+// 	String response = makePost("builtins/MyGraph",content);
 	
-	getJSON(response);
+// 	DynamicJsonDocument resDict = getJSON(response);
 
-	int count = int(resDict["results"][0]["count"]);
-	Serial.println(count);
-}
+// 	int count = int(resDict["results"][0]["count"]);
+// 	Serial.println(count);
+// }
 
-void upsertVertex(String vertexType, String vertexId, String attributes) {
-	String content = "{\"vertices\":{\""+vertexType+"\":{\""+vertexId+"\":"+attributes+"}}}";
-	String response = makePost("graph/MyGraph", content);
-	getJSON(response);
-}
+// void upsertVertex(String vertexType, String vertexId, String attributes) {
+// 	String content = "{\"vertices\":{\""+vertexType+"\":{\""+vertexId+"\":"+attributes+"}}}";
+// 	String response = makePost("graph/MyGraph", content);
+// 	getJSON(response);
+// }
 
-void upsertEdge(String sourceVertexType, String sourceVertexId, String edgeType, String targetVertexType, String targetVertexId, String attributes) {
-	String content = "{\"edges\":{\""+sourceVertexType+"\":{\""+sourceVertexId+"\":{\""+edgeType+"\":{\""+targetVertexType+"\":{\""+targetVertexId+"\":"+attributes+"}}}}}}";
-	String response = makePost("graph/MyGraph", content);
-	getJSON(response);
-}
+// void upsertEdge(String sourceVertexType, String sourceVertexId, String edgeType, String targetVertexType, String targetVertexId, String attributes) {
+// 	String content = "{\"edges\":{\""+sourceVertexType+"\":{\""+sourceVertexId+"\":{\""+edgeType+"\":{\""+targetVertexType+"\":{\""+targetVertexId+"\":"+attributes+"}}}}}}";
+// 	String response = makePost("graph/MyGraph", content);
+// 	getJSON(response);
+// }
 
-String makePost(String endpoint, String content) {
-	int contentLength = content.length();
+// String makePost(String endpoint, String content) {
+// 	int contentLength = content.length();
 
-	client.println(String("POST /restpp/"+endpoint+" HTTP/1.1") + "\r\n" + 
-	"Host: "+HOST_NAME+":443" + "\r\n" +
-	"Authorization: Bearer "+ TOKEN + "\r\n" +
-	"Content-Type: text/plain" + "\r\n" +
-	"Content-Length: " + contentLength + "\r\n" +
-	"\r\n" +
-	content);
-	String response = client.readString();
-	return response;
-}
+// 	client.println(String("POST /restpp/"+endpoint+" HTTP/1.1") + "\r\n" + 
+// 	"Host: "+HOST_NAME+":443" + "\r\n" +
+// 	"Authorization: Bearer "+ TOKEN + "\r\n" +
+// 	"Content-Type: text/plain" + "\r\n" +
+// 	"Content-Length: " + contentLength + "\r\n" +
+// 	"\r\n" +
+// 	content);
+// 	String response = client.readString();
+// 	return response;
+// }
 
-void getJSON(String response) {
-	int resLen = response.length();
-	char res[resLen+1];
-	response.toCharArray(res, resLen);
-	char * lines;
-	char * dat;
-	lines = strtok(res,"\n");
-	while (lines != NULL)
-	{
-		dat = lines;
-		lines = strtok(NULL,"\n");
-	}
-	int dl = strlen(dat);
-	char data[dl+1];
-	strcpy(data,dat);
-	strcat(data + dl, "}");
+// DynamicJsonDocument getJSON(String response) {
+// 	int resLen = response.length();
+// 	char res[resLen+1];
+// 	response.toCharArray(res, resLen);
+// 	char * lines;
+// 	char * dat;
+// 	lines = strtok(res,"\n");
+// 	while (lines != NULL)
+// 	{
+// 		dat = lines;
+// 		lines = strtok(NULL,"\n");
+// 	}
+// 	int dl = strlen(dat);
+// 	char data[dl+1];
+// 	strcpy(data,dat);
+// 	strcat(data + dl, "}");
 	
-	Serial.println(data);
-	resDict.garbageCollect();
-	DeserializationError error = deserializeJson(resDict, data);
-	if (error) {
-		Serial.print(F("deserializeJson() failed: "));
-    	Serial.println(error.f_str());
-	}
-}
+// 	Serial.println(data);
+// 	DynamicJsonDocument resDict(2048);
+// 	DeserializationError error = deserializeJson(resDict, (const char*)data);
+// 	if (error) {
+// 		Serial.print(F("deserializeJson() failed: "));
+//     	Serial.println(error.f_str());
+// 	}
+// 	// Serial.println(resDict);
+// 	resDict.shrinkToFit();
+// 	return resDict;
+// }
 
 void printLocalTime(){
   struct tm timeinfo;
@@ -233,13 +236,13 @@ void addReading(float reading, tm* timeinfo) {
 	char justDate[11];
 	strftime(justDate,11,"%F",timeinfo);
 	String reading_id = String(DEVICE_ID + DEVICE_TYPE + datetime);
-	upsertVertex("Reading", reading_id, "{\"value\":{\"value\":" + readingString + "},\"type\":{\"value\":\"" + DEVICE_TYPE + "\"},\"captured_at\":{\"value\":\"" + String(datetime) + "\"}}");
-	upsertEdge("Device", DEVICE_ID, "has_reading", "Reading", reading_id, "{}");
-	upsertEdge("Reading", reading_id, "on_day", "Day", String(justDate), "{}");
-	upsertEdge("Reading", reading_id, "on_hour", "Hour", hour, "{}");
-	upsertEdge("Reading", reading_id, "on_minute", "Minute", minute, "{}");
-	upsertEdge("Reading", reading_id, "on_second", "Second", second, "{}");
-	upsertEdge("Reading", reading_id, "of_type", "Reading_Type", DEVICE_TYPE, "{}");
+	conn.upsertVertex("Reading", reading_id, "{\"value\":{\"value\":" + readingString + "},\"type\":{\"value\":\"" + DEVICE_TYPE + "\"},\"captured_at\":{\"value\":\"" + String(datetime) + "\"}}");
+	conn.upsertEdge("Device", DEVICE_ID, "has_reading", "Reading", reading_id, "{}");
+	conn.upsertEdge("Reading", reading_id, "on_day", "Day", String(justDate), "{}");
+	conn.upsertEdge("Reading", reading_id, "on_hour", "Hour", hour, "{}");
+	conn.upsertEdge("Reading", reading_id, "on_minute", "Minute", minute, "{}");
+	conn.upsertEdge("Reading", reading_id, "on_second", "Second", second, "{}");
+	conn.upsertEdge("Reading", reading_id, "of_type", "Reading_Type", DEVICE_TYPE, "{}");
 }
 
 void setupLux() {
@@ -258,3 +261,29 @@ void setStrip(uint32_t color) {
 	}
 	strip.show();
 }
+
+String runQuery(String queryName, String params) {
+	int contentLength = params.length();
+
+	client.println(String("POST /restpp/query/MyGraph/"+queryName+" HTTP/1.1") + "\r\n" + 
+	"Host: "+HOST_NAME+":443" + "\r\n" +
+	"Authorization: Bearer "+ TOKEN + "\r\n" +
+	"Content-Type: text/plain" + "\r\n" +
+	"Content-Length: " + contentLength + "\r\n" +
+	"\r\n" +
+	params);
+	String response = client.readString();
+	return response;
+}
+
+// void parseLuxResults(){
+// 	for(int i=0; i<8; i++){
+// 		String results = resDict["results"][0]["(@@lightDates)"][i]["reading"];
+// 		int brightness = results.toInt();
+// 		// brightness *= 4;
+// 		constrain(brightness, 0, 255);
+// 		Serial.println(brightness);
+// 		strip.setPixelColor(i, strip.Color(0,0,0,brightness));
+// 	}
+// 	strip.show();
+// }
